@@ -2,6 +2,10 @@ from google.cloud import texttospeech
 import base64
 import os
 import logging
+from google.oauth2 import service_account
+import json
+import tempfile
+from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
@@ -11,8 +15,60 @@ class TTSService:
     def __init__(self):
         """Initialize the TTS service."""
         try:
-            self.client = texttospeech.TextToSpeechClient()
-            logger.info("Successfully initialized Google Cloud TTS client")
+            # Load environment variables from .env file
+            load_dotenv()
+            
+            # Get credentials from environment variable
+            credentials_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS_JSON')
+            if not credentials_json:
+                raise ValueError("GOOGLE_APPLICATION_CREDENTIALS_JSON environment variable not set")
+            
+            try:
+                # Clean the JSON string
+                credentials_json = credentials_json.strip()
+                
+                # Log the problematic area
+                try:
+                    json.loads(credentials_json)
+                except json.JSONDecodeError as e:
+                    # Get the context around the error
+                    start = max(0, e.pos - 50)
+                    end = min(len(credentials_json), e.pos + 50)
+                    context = credentials_json[start:end]
+                    logger.error(f"JSON Error at position {e.pos}:")
+                    logger.error(f"Context: ...{context}...")
+                    logger.error(f"Error: {str(e)}")
+                    
+                    # Try to identify common issues
+                    if "Expecting property name" in str(e):
+                        logger.error("This usually means there's a missing quote or comma in your JSON")
+                        logger.error("Check for:")
+                        logger.error("1. Missing quotes around property names")
+                        logger.error("2. Single quotes instead of double quotes")
+                        logger.error("3. Missing commas between properties")
+                        logger.error("4. Extra commas at the end of objects")
+                    raise
+                
+                # Create a temporary file with the credentials
+                with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json') as temp_credentials:
+                    temp_credentials.write(credentials_json)
+                    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = temp_credentials.name
+                
+                # Initialize client with default credentials
+                self.client = texttospeech.TextToSpeechClient()
+                logger.info("Successfully initialized Google Cloud TTS client")
+                
+            except json.JSONDecodeError as e:
+                logger.error(f"Invalid JSON in GOOGLE_APPLICATION_CREDENTIALS_JSON: {str(e)}")
+                raise
+            except Exception as e:
+                logger.error(f"Error initializing TTS client: {str(e)}")
+                raise
+            finally:
+                # Clean up temp file
+                if 'temp_credentials' in locals() and os.path.exists(temp_credentials.name):
+                    os.unlink(temp_credentials.name)
+                    
         except Exception as e:
             logger.error(f"Error initializing TTS client: {e}")
             raise

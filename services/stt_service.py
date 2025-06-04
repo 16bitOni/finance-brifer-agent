@@ -17,21 +17,8 @@ class STTService:
     def _initialize(self):
         """Initialize Google Cloud Speech-to-Text service."""
         # Check for GOOGLE_APPLICATION_CREDENTIALS (file path)
-        credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
         credentials_json = os.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON")
-
-        logger.debug(f"Credentials path: {credentials_path}")
-        logger.debug(f"Credentials JSON: {credentials_json}")
-
-        if credentials_path and os.path.isfile(credentials_path):
-            try:
-                # Use existing credentials file if valid
-                self.speech_client = speech.SpeechClient()
-                logger.info("Google Cloud Speech-to-Text initialized using file path.")
-            except Exception as e:
-                logger.error(f"Error initializing Google Cloud Speech-to-Text with file: {str(e)}")
-                self.speech_client = None
-        elif credentials_json:
+        if credentials_json:
             try:
                 # Validate JSON content before writing
                 json.loads(credentials_json)  # Check if valid JSON
